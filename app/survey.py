@@ -7,9 +7,28 @@ from pydantic import BaseModel
 from app.db import get_db
 from sqlalchemy.orm import Session
 from app.models.user_tokens import UserToken
+from app.models.form_model import UserForms
 
 router = APIRouter()
 
+@router.get("/user/forms")
+def get_user_forms(email: str, db: Session = Depends(get_db)):
+    try:
+        forms = db.query(UserForms).filter(UserForms.email == email).all()
+        return [
+            {
+                "id": form.id,
+                "formId": form.form_id,
+                "title": form.title,
+                "description": form.description,
+                "created_at": form.created_at,
+                "editLink": f"https://docs.google.com/forms/d/{form.form_id}/edit",
+                "publicLink": f"https://docs.google.com/forms/d/{form.form_id}/viewform"
+            }
+            for form in forms
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch user forms: {str(e)}")
 
 @router.post("/create")
 def create_survey(request: CreateSurveyRequest):
