@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from app.services import google_forms_service
-from app.schemas.survey_schemas import CreateSurveyRequest, AddQuestionRequest, AddShortAnswerRequest, AddParagraphRequest
+from app.schemas.survey_schemas import CreateSurveyRequest, AddQuestionRequest, AddShortAnswerRequest, AddParagraphRequest, CloneFormRequest
 from pydantic import BaseModel
 from app.db import get_db
 from sqlalchemy.orm import Session
@@ -13,7 +13,15 @@ router = APIRouter()
 
 @router.post("/create")
 def create_survey(request: CreateSurveyRequest):
-    return google_forms_service.create_form(request.email, request.title)
+    data= google_forms_service.create_form(request.email, request.title)
+    # after form creation
+    google_forms_service.save_form_metadata(
+        form_id=data["formId"],
+        title=data["info"]["title"],
+        description=data["info"].get("description", ""),
+        email=request.email
+    )
+    return data
 
 @router.get("/get/{form_id}")
 def get_survey(email: str, form_id: str):
@@ -145,6 +153,24 @@ def delete_question(email: str, form_id: str, index: int, db: Session = Depends(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/clone-form")
+def clone_form(request: CloneFormRequest, db: Session = Depends(get_db)):
+    try:
+        result = google_forms_service.clone_form(
+            email=request.email,
+            source_form_id=request.source_form_id,
+            new_form_title=request.new_form_title
+        )
+        # after form creation
+        google_forms_service.save_form_metadata(
+            form_id=result["new_form_id"],
+            title=result["title"],
+            description=result.get("description", ""),
+            email=request.email
+        )
+        return {"message": "Form cloned successfully", "data": result}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to clone form: {str(e)}")
 
 @router.post("/update/{form_id}")
 def update_survey(email: str, form_id: str, requests_payload: list):

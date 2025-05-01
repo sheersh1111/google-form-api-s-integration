@@ -23,3 +23,8 @@ class AddParagraphRequest(BaseModel):
     email: str
     form_id: str
     question_title: str
+
+class CloneFormRequest(BaseModel):
+    email: str
+    source_form_id: str
+    new_form_title: str
